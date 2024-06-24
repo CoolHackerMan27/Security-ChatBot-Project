@@ -69,7 +69,7 @@ def sqlInsertParent(comment_id, parent_id, comment, parent, subreddit, time, sco
         print('s0 insertion',str(e))
 
 def sqlInsertNoParent(comment_id, parent_id, comment, parent, subreddit, time, score):
-   try:
+    try:
         sql = """INSERT INTO parent_reply (parent_id, comment_id, comment, subreddit, unix, score) VALUES ("{}","{}","{}","{}",{},{});""".format(parentid, commentid, comment, subreddit, int(time), score)
         transactionBuilder(sql)
     except Exception as e:
