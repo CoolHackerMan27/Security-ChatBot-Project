@@ -1,0 +1,4 @@
+tensorflow
+sqlite3
+json
+pandas
