@@ -33,6 +33,21 @@ class TransformerModel(tf.keras.Model):
 def tokenize_and_encode(texts):
     return tokenizer.tokenize(texts).to_tensor()
 # Custom learning rate scheduler
+class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+    def __init__(self, d_model, warmup_steps=4000):
+        super(CustomSchedule, self).__init__()
+        
+        self.d_model = d_model
+        self.d_model = tf.cast(self.d_model, tf.float32)
+        
+        self.warmup_steps = warmup_steps
+        
+    def __call__(self, step):
+        arg1 = tf.math.rsqrt(step)
+        arg2 = step * (self.warmup_steps ** -1.5)
+        
+        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+#Loss Function
 def loss_function(real, pred):
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     loss_ = loss_object(real, pred)
@@ -91,3 +106,6 @@ for epoch in range(EPOCHS):
         total_loss += batch_loss
     
     print(f'Epoch {epoch + 1}, Loss: {total_loss/len(dataset)}')
+
+# Save the model
+model.save('RedditSLMv1.0.h5')
