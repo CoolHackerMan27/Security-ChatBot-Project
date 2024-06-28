@@ -327,16 +327,16 @@ for epoch in range(EPOCHS):
         train_targets_encoded = tokenize_and_encode(target_chunk)
 
         # Debug: Print the shapes before padding
-        print(f"Before padding - Inputs shape: {
-              train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
+        print("Before padding - Inputs shape:" + train_inputs_encoded.shape +
+              " Targets shape:" + train_targets_encoded.shape)
 
         # Pad sequences to the same length
         train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
             train_inputs_encoded, train_targets_encoded)
 
         # Debug: Print the shapes after padding
-        print(f"After padding - Inputs shape: {
-              train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
+        print("After padding - Inputs shape:" +
+              train_inputs_encoded.shape + " Targets shape: " + train_targets_encoded.shape)
 
         dataset = tf.data.Dataset.from_tensor_slices(
             (train_inputs_encoded, train_targets_encoded))
@@ -357,7 +357,7 @@ for epoch in range(EPOCHS):
                 accumulated_gradients = [tf.zeros_like(
                     var) for var in model.trainable_variables]
 
-    print(f'Epoch {epoch + 1}, Loss: {total_loss/batch_count}')
+    print("Epoch" + {epoch + 1} + " Loss:" + total_loss/batch_count)
 
 # Save the model
 model.save('RedditSLMv1.0.h5')
