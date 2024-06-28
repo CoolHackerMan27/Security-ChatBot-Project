@@ -109,8 +109,8 @@ model = TransformerModel(
     d_model=D_MODEL,
     num_heads=NUM_HEADS,
     dff=DFF,
-    input_vocab_size=tokenizer.vocab_size(),
-    target_vocab_size=tokenizer.vocab_size(),
+    input_vocab_size=55,
+    target_vocab_size=55,
     pe_input=PE_INPUT,
     pe_target=PE_TARGET
 )
