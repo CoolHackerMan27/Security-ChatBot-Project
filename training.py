@@ -295,6 +295,14 @@ model = TransformerModel(
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     from_logits=True, reduction='none')
 
+
+def tokenize_and_encode(chunk):
+    # Assuming the tokenizer and appropriate preprocessing functions are defined
+    tokenized_text = tokenizer.tokenize(chunk).merge_dims(-2, -1)
+    encoded_text = tokenized_text.to_tensor()
+    return encoded_text
+
+
 EPOCHS = 20
 
 for epoch in range(EPOCHS):
