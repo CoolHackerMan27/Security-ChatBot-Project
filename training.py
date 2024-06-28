@@ -1,3 +1,4 @@
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.layers import Layer, Dense, LayerNormalization, Dropout, Embedding
 import numpy as np
 import tensorflow as tf
@@ -296,8 +297,16 @@ loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     from_logits=True, reduction='none')
 
 
+def pad_sequences_to_same_length(seq1, seq2, padding='post'):
+    # Find the maximum length between the two sequences
+    max_length = max(len(seq1[0]), len(seq2[0]))
+    # Pad the sequences to the same length
+    padded_seq1 = pad_sequences(seq1, maxlen=max_length, padding=padding)
+    padded_seq2 = pad_sequences(seq2, maxlen=max_length, padding=padding)
+    return padded_seq1, padded_seq2
+
+
 def tokenize_and_encode(chunk):
-    # Assuming the tokenizer and appropriate preprocessing functions are defined
     tokenized_text = tokenizer.tokenize(chunk).merge_dims(-2, -1)
     encoded_text = tokenized_text.to_tensor()
     return encoded_text
@@ -316,6 +325,10 @@ for epoch in range(EPOCHS):
 
         train_inputs_encoded = tokenize_and_encode(input_chunk)
         train_targets_encoded = tokenize_and_encode(target_chunk)
+
+        # Pad sequences to the same length
+        train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
+            train_inputs_encoded, train_targets_encoded)
 
         dataset = tf.data.Dataset.from_tensor_slices(
             (train_inputs_encoded, train_targets_encoded))
