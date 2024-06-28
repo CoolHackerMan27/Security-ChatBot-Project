@@ -299,7 +299,7 @@ loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
 
 def pad_sequences_to_same_length(seq1, seq2, padding='post'):
     # Find the maximum length between the two sequences
-    max_length = max(len(seq1[0]), len(seq2[0]))
+    max_length = max(max([len(s) for s in seq1]), max([len(s) for s in seq2]))
     # Pad the sequences to the same length
     padded_seq1 = pad_sequences(seq1, maxlen=max_length, padding=padding)
     padded_seq2 = pad_sequences(seq2, maxlen=max_length, padding=padding)
@@ -326,9 +326,17 @@ for epoch in range(EPOCHS):
         train_inputs_encoded = tokenize_and_encode(input_chunk)
         train_targets_encoded = tokenize_and_encode(target_chunk)
 
+        # Debug: Print the shapes before padding
+        print(f"Before padding - Inputs shape: {
+              train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
+
         # Pad sequences to the same length
         train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
             train_inputs_encoded, train_targets_encoded)
+
+        # Debug: Print the shapes after padding
+        print(f"After padding - Inputs shape: {
+              train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
 
         dataset = tf.data.Dataset.from_tensor_slices(
             (train_inputs_encoded, train_targets_encoded))
