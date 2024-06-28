@@ -24,31 +24,58 @@ DFF = 1024
 PE_INPUT = 1000
 PE_TARGET = 1000
 
-# Transformer model class (unchanged)
+# Transformer model class
 
 
 class TransformerModel(tf.keras.Model):
-    # ... (keep the same implementation)
+    def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
+                 target_vocab_size, pe_input, pe_target, rate=0.1):
+        super(TransformerModel, self).__init__()
+        self.encoder = Encoder(num_layers, d_model, num_heads, dff,
+                               input_vocab_size, pe_input, rate)
+        self.decoder = Decoder(num_layers, d_model, num_heads, dff,
+                               target_vocab_size, pe_target, rate)
+        self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
-    # Tokenize and encode the data
+    def call(self, inputs, targets, training, enc_padding_mask,
+             look_ahead_mask, dec_padding_mask):
+        enc_output = self.encoder(inputs, training, enc_padding_mask)
+        dec_output, attention_weights = self.decoder(
+            targets, enc_output, training, look_ahead_mask, dec_padding_mask)
+        final_output = self.final_layer(dec_output)
+        return final_output, attention_weights
+
+# Tokenize and encode the data
 
 
 def tokenize_and_encode(texts):
     return tokenizer.tokenize(texts).to_tensor()
 
-# Custom learning rate scheduler (unchanged)
+# Custom learning rate scheduler
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
-    # ... (keep the same implementation)
+    def __init__(self, d_model, warmup_steps=4000):
+        super(CustomSchedule, self).__init__()
+        self.d_model = d_model
+        self.d_model = tf.cast(self.d_model, tf.float32)
+        self.warmup_steps = warmup_steps
 
-    # Loss function (unchanged)
+    def __call__(self, step):
+        arg1 = tf.math.rsqrt(step)
+        arg2 = step * (self.warmup_steps ** -1.5)
+        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
 
 def loss_function(real, pred):
-    # ... (keep the same implementation)
+    mask = tf.math.logical_not(tf.math.equal(real, 0))
+    loss_ = loss_object(real, pred)
+    mask = tf.cast(mask, dtype=loss_.dtype)
+    loss_ *= mask
+    return tf.reduce_sum(loss_)/tf.reduce_sum(mask)
 
-    # Gradient accumulation steps
+
+# Gradient accumulation steps
 ACCUMULATION_STEPS = 4
 
 
