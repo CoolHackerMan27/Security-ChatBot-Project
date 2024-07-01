@@ -306,9 +306,8 @@ def pad_sequences_to_same_length(seq1, seq2, padding='post'):
     return padded_seq1, padded_seq2
 
 def tokenize_and_encode(chunk):
-    tokenized_text = tokenizer.tokenize(chunk).merge_dims(-2, -1)
-    encoded_text = tokenizer.convert_tokens_to_ids(tokenized_text)
-    return tf.ragged.constant(encoded_text)
+    tokenized_text = tokenizer.tokenize(chunk)
+    return tokenized_text.merge_dims(-2, -1)
 
 # In the training loop:
 for epoch in range(EPOCHS):
@@ -320,7 +319,7 @@ for epoch in range(EPOCHS):
         train_inputs_encoded = tokenize_and_encode(input_chunk)
         train_targets_encoded = tokenize_and_encode(target_chunk)
 
-        # Convert ragged tensors to dense and pad
+        # Convert to dense tensors and pad
         train_inputs_encoded = train_inputs_encoded.to_tensor()
         train_targets_encoded = train_targets_encoded.to_tensor()
         train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
