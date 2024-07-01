@@ -288,8 +288,8 @@ model = TransformerModel(
     d_model=D_MODEL,
     num_heads=NUM_HEADS,
     dff=DFF,
-    input_vocab_size=55,
-    target_vocab_size=55,
+    input_vocab_size=550,
+    target_vocab_size=550,
     pe_input=PE_INPUT,
     pe_target=PE_TARGET
 )
