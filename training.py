@@ -5,7 +5,7 @@ import tensorflow as tf
 import tensorflow_text as text
 
 
-tf.keras.mixed_precision.set_global_policy('float32')
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
 # Load data in chunks
 
 
