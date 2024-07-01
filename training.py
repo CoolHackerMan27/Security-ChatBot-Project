@@ -343,38 +343,49 @@ for epoch in range(EPOCHS):
     batch_count = 0
     accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
 
-    for input_chunk, target_chunk in zip(load_data_chunk('train.from'), load_data_chunk('train.to')):
-        train_inputs_encoded = tokenize_and_encode(input_chunk)
-        train_targets_encoded = tokenize_and_encode(target_chunk)
+# In the training loop:
+for epoch in range(EPOCHS):
+    total_loss = 0
+    batch_count = 0
+    accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
 
-        # Convert to dense tensors
-        train_inputs_encoded = train_inputs_encoded.to_tensor()
-        train_targets_encoded = train_targets_encoded.to_tensor()
+    try:
+        for input_chunk, target_chunk in zip(load_data_chunk('train.from'), load_data_chunk('train.to')):
+            train_inputs_encoded = tokenize_and_encode(input_chunk)
+            train_targets_encoded = tokenize_and_encode(target_chunk)
 
-        # Ensure same number of samples
-        min_samples = min(train_inputs_encoded.shape[0], train_targets_encoded.shape[0])
-        train_inputs_encoded = train_inputs_encoded[:min_samples]
-        train_targets_encoded = train_targets_encoded[:min_samples]
+            # Convert to dense tensors
+            train_inputs_encoded = train_inputs_encoded.to_tensor()
+            train_targets_encoded = train_targets_encoded.to_tensor()
 
-        # Pad sequences to the same length
-        train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
-            train_inputs_encoded, train_targets_encoded)
+            # Ensure same number of samples
+            min_samples = min(train_inputs_encoded.shape[0], train_targets_encoded.shape[0])
+            train_inputs_encoded = train_inputs_encoded[:min_samples]
+            train_targets_encoded = train_targets_encoded[:min_samples]
 
-        # Debug: Print the shapes after padding
-        print(f"After padding - Inputs shape: {train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
+            # Pad sequences to the same length
+            train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
+                train_inputs_encoded, train_targets_encoded)
 
-        dataset = tf.data.Dataset.from_tensor_slices((train_inputs_encoded, train_targets_encoded))
-        dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+            # Debug: Print the shapes after padding
+            print(f"After padding - Inputs shape: {train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
 
-        for (batch, (inp, tar)) in enumerate(dataset):
-            batch_loss, gradients = train_step(inp, tar)
-            total_loss += batch_loss
-            batch_count += 1
+            dataset = tf.data.Dataset.from_tensor_slices((train_inputs_encoded, train_targets_encoded))
+            dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
-            accumulated_gradients = [accu_grad + grad for accu_grad, grad in zip(accumulated_gradients, gradients)]
+            for (batch, (inp, tar)) in enumerate(dataset):
+                batch_loss, gradients = train_step(inp, tar)
+                total_loss += batch_loss
+                batch_count += 1
 
-            # if batch_count % ACCUMULATION_STEPS == 0:
-            #     optimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
-            #     accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
+                accumulated_gradients = [accu_grad + grad for accu_grad, grad in zip(accumulated_gradients, gradients)]
+
+                # Apply gradients if accumulation steps are reached
+                if batch_count % ACCUMULATION_STEPS == 0:
+                    optimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
+                    accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
+                    
+    except tf.errors.OutOfRangeError:
+        print("End of sequence reached.")
 
     print(f"Epoch {epoch + 1} Loss: {total_loss/batch_count}")
