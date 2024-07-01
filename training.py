@@ -130,7 +130,7 @@ class Encoder(Layer):
     def call(self, x, training=False, mask=None):
         seq_len = tf.shape(x)[1]
         x = self.embedding(x)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+        x *= tf.cast(tf.math.sqrt(tf.cast(self.d_model, tf.float32)), dtype=x.dtype)
         x += self.pos_encoding[:, :seq_len, :]
         x = self.dropout(x, training=training)
 
