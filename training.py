@@ -384,8 +384,10 @@ for epoch in range(EPOCHS):
                 if batch_count % ACCUMULATION_STEPS == 0:
                     optimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
                     accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
-                    
+
     except tf.errors.OutOfRangeError:
         print("End of sequence reached.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
     print(f"Epoch {epoch + 1} Loss: {total_loss/batch_count}")
