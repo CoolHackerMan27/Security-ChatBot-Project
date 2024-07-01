@@ -49,29 +49,12 @@ class MultiHeadAttention(Layer):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    def call(self, v, k, q, mask):
-        batch_size = tf.shape(q)[0]
-
-        q = self.wq(q)  # (batch_size, seq_len, d_model)
-        k = self.wk(k)  # (batch_size, seq_len, d_model)
-        v = self.wv(v)  # (batch_size, seq_len, d_model)
-
-        # (batch_size, num_heads, seq_len_q, depth)
-        q = self.split_heads(q, batch_size)
-        # (batch_size, num_heads, seq_len_k, depth)
-        k = self.split_heads(k, batch_size)
-        # (batch_size, num_heads, seq_len_v, depth)
-        v = self.split_heads(v, batch_size)
-
-        scaled_attention, attention_weights = self.scaled_dot_product_attention(
-            q, k, v, mask)
-        scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])
-
-        concat_attention = tf.reshape(
-            scaled_attention, (batch_size, -1, self.d_model))
-        output = self.dense(concat_attention)
-
-        return output, attention_weights
+def call(self, inputs, targets, training=False, enc_padding_mask=None, look_ahead_mask=None, dec_padding_mask=None):
+    enc_output = self.encoder(inputs, training=training, mask=enc_padding_mask)
+    dec_output, attention_weights = self.decoder(
+        targets, enc_output, training=training, look_ahead_mask=look_ahead_mask, padding_mask=dec_padding_mask)
+    final_output = self.final_layer(dec_output)
+    return final_output, attention_weights
 
     def scaled_dot_product_attention(self, q, k, v, mask):
         matmul_qk = tf.matmul(q, k, transpose_b=True)
@@ -232,7 +215,13 @@ class TransformerModel(tf.keras.Model):
         final_output = self.final_layer(dec_output)
         return final_output, attention_weights
 
+def create_padding_mask(seq):
+    seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
+    return seq[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
 
+def create_look_ahead_mask(size):
+    mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
+    return mask  # (seq_len, seq_len)
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, d_model, warmup_steps=4000):
         super(CustomSchedule, self).__init__()
@@ -263,21 +252,32 @@ def train_step(inp, tar):
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
+    enc_padding_mask = create_padding_mask(inp)
+    look_ahead_mask = create_look_ahead_mask(tf.shape(tar_inp)[1])
+    dec_padding_mask = create_padding_mask(inp)
+
     with tf.GradientTape() as tape:
-        predictions, _ = model(inp, tar_inp, True, None, None, None)
+        predictions, _ = model(
+            inputs=inp, 
+            targets=tar_inp, 
+            training=True, 
+            enc_padding_mask=enc_padding_mask,
+            look_ahead_mask=look_ahead_mask,
+            dec_padding_mask=dec_padding_mask
+        )
         loss = loss_function(tar_real, predictions)
         loss = loss / ACCUMULATION_STEPS
 
     gradients = tape.gradient(loss, model.trainable_variables)
     return loss, gradients
 
-
 # Use mixed precision
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 learning_rate = CustomSchedule(D_MODEL)
-optimizer = tf.keras.optimizers.AdamW(
-    learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+optimizer = tf.keras.mixed_precision.LossScaleOptimizer(
+    tf.keras.optimizers.AdamW(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+)
 
 BUFFER_SIZE = 10000
 BATCH_SIZE = 32
@@ -346,7 +346,7 @@ for epoch in range(EPOCHS):
             accumulated_gradients = [accu_grad + grad for accu_grad, grad in zip(accumulated_gradients, gradients)]
 
             if batch_count % ACCUMULATION_STEPS == 0:
-                optimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
+                ptimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
                 accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
 
     print(f"Epoch {epoch + 1} Loss: {total_loss/batch_count}")
