@@ -38,7 +38,7 @@ def positional_encoding(position, d_model):
     
     pos_encoding = angle_rads[np.newaxis, ...]
     
-    return tf.cast(pos_encoding, dtype=tf.float32)
+    return tf.cast(pos_encoding, dtype=tf.float16)
 
 # Define constants
 D_MODEL = 256
@@ -122,23 +122,33 @@ class Encoder(Layer):
         super(Encoder, self).__init__()
         self.d_model = d_model
         self.num_layers = num_layers
-        self.embedding = Embedding(input_vocab_size, d_model)
-        self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
+        self.embedding = Embedding(input_vocab_size, d_model, dtype=tf.float16)
+        self.pos_encoding = tf.cast(positional_encoding(maximum_position_encoding, d_model), dtype=tf.float16)
         self.enc_layers = [EncoderLayer(d_model, num_heads, dff, rate) for _ in range(num_layers)]
         self.dropout = Dropout(rate)
 
     def call(self, x, training=False, mask=None):
         seq_len = tf.shape(x)[1]
+        
+        # Cast input to int32 (if it's not already)
+        x = tf.cast(x, tf.int32)
+        
+        # Embed and cast to float16
         x = self.embedding(x)
-        x *= tf.cast(tf.math.sqrt(tf.cast(self.d_model, tf.float32)), dtype=x.dtype)
+        x = tf.cast(x, tf.float16)
+        
+        # Scale
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float16))
+        
+        # Add positional encoding
         x += self.pos_encoding[:, :seq_len, :]
+        
         x = self.dropout(x, training=training)
 
         for i in range(self.num_layers):
             x = self.enc_layers[i](x, training=training, mask=mask)
 
         return x
-
 class DecoderLayer(Layer):
     def __init__(self, d_model, num_heads, dff, rate=0.1):
         super(DecoderLayer, self).__init__()
@@ -243,13 +253,16 @@ ACCUMULATION_STEPS = 4
 
 @tf.function
 def train_step(inp, tar):
+    inp = tf.cast(inp, tf.int32)
+    tar = tf.cast(tar, tf.int32)
+    
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
 
-    enc_padding_mask = create_padding_mask(inp)
-    look_ahead_mask = create_look_ahead_mask(tf.shape(tar_inp)[1])
-    dec_padding_mask = create_padding_mask(inp)
-
+    enc_padding_mask = tf.cast(create_padding_mask(inp), tf.float16)
+    look_ahead_mask = tf.cast(create_look_ahead_mask(tf.shape(tar_inp)[1]), tf.float16)
+    dec_padding_mask = tf.cast(create_padding_mask(inp), tf.float16)
+    
     with tf.GradientTape() as tape:
         predictions, _ = model(
             inputs=inp, 
