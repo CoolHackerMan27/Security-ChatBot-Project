@@ -4,7 +4,9 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_text as text
 
-# Load your data in chunks
+
+tf.keras.mixed_precision.set_global_policy('float32')
+# Load data in chunks
 
 
 def load_data_chunk(filename, chunk_size=10000):
@@ -37,8 +39,8 @@ def positional_encoding(position, d_model):
     pos_encoding = angle_rads[np.newaxis, ...]
     
     return tf.cast(pos_encoding, dtype=tf.float32)
-    
-# Define constants (reduced sizes)
+
+# Define constants
 D_MODEL = 256
 NUM_LAYERS = 4
 NUM_HEADS = 4
