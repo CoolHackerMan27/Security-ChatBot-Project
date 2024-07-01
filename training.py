@@ -374,7 +374,7 @@ for epoch in range(EPOCHS):
             accumulated_gradients = [accu_grad + grad for accu_grad, grad in zip(accumulated_gradients, gradients)]
 
             if batch_count % ACCUMULATION_STEPS == 0:
-                ptimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
+                optimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
                 accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
 
     print(f"Epoch {epoch + 1} Loss: {total_loss/batch_count}")
