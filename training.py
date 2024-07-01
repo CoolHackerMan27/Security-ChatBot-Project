@@ -296,68 +296,50 @@ model = TransformerModel(
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     from_logits=True, reduction='none')
 
-
 def pad_sequences_to_same_length(seq1, seq2, padding='post'):
     # Find the maximum length between the two sequences
-    max_length = max(max([len(s) for s in seq1]), max([len(s) for s in seq2]))
+    max_length = max(tf.shape(seq1)[1], tf.shape(seq2)[1])
     # Pad the sequences to the same length
-    padded_seq1 = pad_sequences(seq1, maxlen=max_length, padding=padding)
-    padded_seq2 = pad_sequences(seq2, maxlen=max_length, padding=padding)
+    padded_seq1 = tf.pad(seq1, [[0, 0], [0, max_length - tf.shape(seq1)[1]]], constant_values=0)
+    padded_seq2 = tf.pad(seq2, [[0, 0], [0, max_length - tf.shape(seq2)[1]]], constant_values=0)
     return padded_seq1, padded_seq2
-
 
 def tokenize_and_encode(chunk):
     tokenized_text = tokenizer.tokenize(chunk).merge_dims(-2, -1)
-    encoded_text = tokenized_text.to_tensor()
-    return encoded_text
+    encoded_text = tokenizer.convert_tokens_to_ids(tokenized_text)
+    return tf.ragged.constant(encoded_text)
 
-
-EPOCHS = 20
-
+# In the training loop:
 for epoch in range(EPOCHS):
     total_loss = 0
     batch_count = 0
-    accumulated_gradients = [tf.zeros_like(
-        var) for var in model.trainable_variables]
+    accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
 
-    for input_chunk in load_data_chunk('train.from'):
-        target_chunk = next(load_data_chunk('train.to'))
-
+    for input_chunk, target_chunk in zip(load_data_chunk('train.from'), load_data_chunk('train.to')):
         train_inputs_encoded = tokenize_and_encode(input_chunk)
         train_targets_encoded = tokenize_and_encode(target_chunk)
 
-        # Debug: Print the shapes before padding
-        print("Before padding - Inputs shape:" + train_inputs_encoded.shape +
-              " Targets shape:" + train_targets_encoded.shape)
-
-        # Pad sequences to the same length
+        # Convert ragged tensors to dense and pad
+        train_inputs_encoded = train_inputs_encoded.to_tensor()
+        train_targets_encoded = train_targets_encoded.to_tensor()
         train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
             train_inputs_encoded, train_targets_encoded)
 
         # Debug: Print the shapes after padding
-        print("After padding - Inputs shape:" +
-              train_inputs_encoded.shape + " Targets shape: " + train_targets_encoded.shape)
+        print(f"After padding - Inputs shape: {train_inputs_encoded.shape}, Targets shape: {train_targets_encoded.shape}")
 
-        dataset = tf.data.Dataset.from_tensor_slices(
-            (train_inputs_encoded, train_targets_encoded))
-        dataset = dataset.shuffle(BUFFER_SIZE).batch(
-            BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+        dataset = tf.data.Dataset.from_tensor_slices((train_inputs_encoded, train_targets_encoded))
+        dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
         for (batch, (inp, tar)) in enumerate(dataset):
             batch_loss, gradients = train_step(inp, tar)
             total_loss += batch_loss
             batch_count += 1
 
-            accumulated_gradients = [
-                accu_grad + grad for accu_grad, grad in zip(accumulated_gradients, gradients)]
+            accumulated_gradients = [accu_grad + grad for accu_grad, grad in zip(accumulated_gradients, gradients)]
 
             if batch_count % ACCUMULATION_STEPS == 0:
-                optimizer.apply_gradients(
-                    zip(accumulated_gradients, model.trainable_variables))
-                accumulated_gradients = [tf.zeros_like(
-                    var) for var in model.trainable_variables]
+                optimizer.apply_gradients(zip(accumulated_gradients, model.trainable_variables))
+                accumulated_gradients = [tf.zeros_like(var) for var in model.trainable_variables]
 
-    print("Epoch" + {epoch + 1} + " Loss:" + total_loss/batch_count)
-
-# Save the model
-model.save('RedditSLMv1.0.h5')
+    print(f"Epoch {epoch + 1} Loss: {total_loss/batch_count}")
