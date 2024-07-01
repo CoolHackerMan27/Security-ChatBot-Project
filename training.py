@@ -26,6 +26,7 @@ NUM_HEADS = 4
 DFF = 1024
 PE_INPUT = 1000
 PE_TARGET = 1000
+EPOCHS = 10
 
 
 class MultiHeadAttention(Layer):
