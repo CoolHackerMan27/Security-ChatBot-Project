@@ -74,7 +74,7 @@ class MultiHeadAttention(Layer):
         matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
         
         # scale matmul_qk
-        dk = tf.cast(tf.shape(k)[-1], tf.float32)
+        dk = tf.cast(tf.shape(k)[-1], tf.float16)
         scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
 
         # add the mask to the scaled tensor.
@@ -162,7 +162,7 @@ class Encoder(Layer):
         x *= tf.math.sqrt(tf.cast(self.d_model, tf.float16))
         
         # Add positional encoding
-        x += self.pos_encoding[:, :seq_len, :]
+        x += tf.cast(self.pos_encoding[:, :seq_len, :], tf.float16)
         
         x = self.dropout(x, training=training)
 
@@ -216,8 +216,9 @@ class Decoder(Layer):
         seq_len = tf.shape(x)[1]
         attention_weights = {}
         x = self.embedding(x)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        x += self.pos_encoding[:, :seq_len, :]
+        x = tf.cast(x, tf.float16)
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float16))
+        x += tf.cast(self.pos_encoding[:, :seq_len, :], tf.float16)
         x = self.dropout(x, training=training)
 
         for i in range(self.num_layers):
@@ -298,7 +299,6 @@ def train_step(inp, tar):
 
     gradients = tape.gradient(loss, model.trainable_variables)
     return loss, gradients
-
 # Use mixed precision
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
