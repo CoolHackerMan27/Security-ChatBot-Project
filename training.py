@@ -319,9 +319,16 @@ for epoch in range(EPOCHS):
         train_inputs_encoded = tokenize_and_encode(input_chunk)
         train_targets_encoded = tokenize_and_encode(target_chunk)
 
-        # Convert to dense tensors and pad
+        # Convert to dense tensors
         train_inputs_encoded = train_inputs_encoded.to_tensor()
         train_targets_encoded = train_targets_encoded.to_tensor()
+
+        # Ensure same number of samples
+        min_samples = min(train_inputs_encoded.shape[0], train_targets_encoded.shape[0])
+        train_inputs_encoded = train_inputs_encoded[:min_samples]
+        train_targets_encoded = train_targets_encoded[:min_samples]
+
+        # Pad sequences to the same length
         train_inputs_encoded, train_targets_encoded = pad_sequences_to_same_length(
             train_inputs_encoded, train_targets_encoded)
 
