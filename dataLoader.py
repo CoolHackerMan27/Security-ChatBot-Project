@@ -27,7 +27,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         combined_texts = [f"Instruction: {inp}\nResponse: {tar}" for inp, tar in zip(input_batch, target_batch)]
         
         # Tokenize
-        tokenizer.pad_token = tokenizer.eos_token
+        self.tokenizer.pad_token = self.tokenizer.eos_token
         encoded = self.tokenizer(combined_texts, padding=True, truncation=True, max_length=self.max_length, return_tensors="tf")
         
         input_ids = encoded['input_ids']
