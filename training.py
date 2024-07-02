@@ -75,7 +75,7 @@ class MultiHeadAttention(Layer):
         
         # scale matmul_qk
         dk = tf.cast(tf.shape(k)[-1], tf.float16)
-        scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
+        scaled_attention_logits = matmul_qk / (tf.math.sqrt(dk) + 1e-9)
 
         # add the mask to the scaled tensor.
         if mask is not None:
@@ -266,7 +266,7 @@ def loss_function(real, pred):
     loss_ = loss_object(real, pred)
     mask = tf.cast(mask, dtype=loss_.dtype)
     loss_ *= mask
-    return tf.reduce_sum(loss_)/tf.reduce_sum(mask)
+    return tf.reduce_sum(loss_)/(tf.reduce_sum(mask) + 1e-9) 
 
 
 # Gradient accumulation steps
