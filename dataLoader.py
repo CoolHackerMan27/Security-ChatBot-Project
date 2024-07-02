@@ -1,12 +1,16 @@
+from transformers import GPT2Tokenizer
 import tensorflow as tf
-import tensorflow_text as text
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+def get_tokenizer():
+    return GPT2Tokenizer.from_pretrained("gpt2")
+
 class DataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, input_file, target_file, batch_size, tokenizer):
+    def __init__(self, input_file, target_file, batch_size, tokenizer, max_length=512):
         self.input_file = input_file
         self.target_file = target_file
         self.batch_size = batch_size
         self.tokenizer = tokenizer
+        self.max_length = max_length
 
     def __len__(self):
         return sum(1 for _ in open(self.input_file)) // self.batch_size
@@ -19,25 +23,21 @@ class DataGenerator(tf.keras.utils.Sequence):
             input_batch = [next(f_in).strip() for _ in range(self.batch_size)]
             target_batch = [next(f_tar).strip() for _ in range(self.batch_size)]
 
-        input_encoded = self.tokenizer.tokenize(input_batch).merge_dims(-2, -1).to_tensor()
-        target_encoded = self.tokenizer.tokenize(target_batch).merge_dims(-2, -1).to_tensor()
+        # Combine input and target for instruction-following format
+        combined_texts = [f"Instruction: {inp}\nResponse: {tar}" for inp, tar in zip(input_batch, target_batch)]
+        
+        # Tokenize
+        encoded = self.tokenizer(combined_texts, padding=True, truncation=True, max_length=self.max_length, return_tensors="tf")
+        
+        input_ids = encoded['input_ids']
+        attention_mask = encoded['attention_mask']
 
-        return input_encoded, target_encoded
+        # Create labels (shift input_ids right by 1)
+        labels = tf.pad(input_ids[:, 1:], [[0, 0], [0, 1]])
 
-def pad_sequences_to_same_length(seq1, seq2, padding='post'):
-    max_length = max(tf.shape(seq1)[1], tf.shape(seq2)[1])
-    padded_seq1 = tf.pad(seq1, [[0, 0], [0, max_length - tf.shape(seq1)[1]]], constant_values=0)
-    padded_seq2 = tf.pad(seq2, [[0, 0], [0, max_length - tf.shape(seq2)[1]]], constant_values=0)
-    return padded_seq1, padded_seq2
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
 
-def tokenize_and_encode(chunk, tokenizer):
-    tokenized_text = tokenizer.tokenize(chunk)
-    return tokenized_text.merge_dims(-2, -1)
-
-def get_tokenizer(vocab_file='bert_vocab.txt'):
-    return text.BertTokenizer(vocab_file, lower_case=True)
-
-def get_data_pipeline(input_file, target_file, batch_size, vocab_file='bert_vocab.txt'):
-    tokenizer = get_tokenizer(vocab_file)
-    data_generator = DataGenerator(input_file, target_file, batch_size, tokenizer)
+def get_data_pipeline(input_file, target_file, batch_size, max_length=512):
+    tokenizer = get_tokenizer()
+    data_generator = DataGenerator(input_file, target_file, batch_size, tokenizer, max_length)
     return tokenizer, data_generator

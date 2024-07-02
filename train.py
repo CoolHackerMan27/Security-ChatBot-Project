@@ -19,10 +19,11 @@ BATCH_SIZE = 32
 ACCUMULATION_STEPS = 4
 INPUT_FILE = 'train.from'
 TARGET_FILE = 'train.to'
+#Deprecated
 VOCAB_FILE = 'bert_vocab.txt'
 
 # Get Tokenizer and Data Generator
-tokenizer, train_generator = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE, VOCAB_FILE)
+tokenizer, train_generator = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE)
 
 
 # Initialize the model
