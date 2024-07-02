@@ -333,6 +333,7 @@ def train_step(inp, tar):
         loss = loss / ACCUMULATION_STEPS
 
     gradients = tape.gradient(loss, model.trainable_variables)
+    gradients = [tf.cast(grad, tf.float32) for grad in gradients]
     gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=1.0)
     return loss, gradients
 
