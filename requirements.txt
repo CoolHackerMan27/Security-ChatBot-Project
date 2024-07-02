@@ -2,3 +2,4 @@ tensorflow
 pandas
 keras
 numpy
+transformers
