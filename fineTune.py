@@ -15,7 +15,7 @@ tokenizer, train_generator = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SI
 model = TFAutoModelForCausalLM.from_pretrained("gpt2")
 
 # Compile the model
-optimizer = tf.keras.optimizers.Adam(learning_rate=5e-5)
+optimizer = tf.keras.optimizers.AdamW(learning_rate=5e-5)
 model.compile(optimizer=optimizer)
 
 # Train the model
