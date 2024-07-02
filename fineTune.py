@@ -16,7 +16,7 @@ model = TFAutoModelForCausalLM.from_pretrained("gpt2")
 
 # Compile the model
 optimizer = tf.keras.optimizers.AdamW(learning_rate=5e-5)
-model.compile(optimizer=optimizer)
+model.compile(optimizer='AdamW', loss='sparse_categorical_crossentropy')
 
 # Train the model
 model.fit(train_generator, epochs=10)
