@@ -1,4 +1,5 @@
 import tensorflow as tf
+from utils import positional_encoding
 from tensorflow.keras.layers import Layer, Embedding, Dense, LayerNormalization, Dropout
 
 class MultiHeadAttention(Layer):

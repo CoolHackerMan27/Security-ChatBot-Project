@@ -45,9 +45,6 @@ optimizer = tf.keras.mixed_precision.LossScaleOptimizer(
 )
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
-# Set up data generator
-train_generator = DataGenerator('train.from', 'train.to', BATCH_SIZE, tokenizer)
-
 @tf.function
 def train_step(inp, tar):
     inp = tf.cast(inp, tf.int32)
