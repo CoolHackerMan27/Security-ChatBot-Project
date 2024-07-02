@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow_text as text
-
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 class DataGenerator(tf.keras.utils.Sequence):
     def __init__(self, input_file, target_file, batch_size, tokenizer):
         self.input_file = input_file

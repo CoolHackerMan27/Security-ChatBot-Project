@@ -1,6 +1,6 @@
 import tensorflow as tf
 from model import TransformerModel
-from data_loader import DataGenerator, pad_sequences_to_same_length
+from data_loader import get_data_pipeline
 from utils import CustomSchedule, loss_function
 import logging
 
@@ -17,9 +17,13 @@ EPOCHS = 10
 BUFFER_SIZE = 10000
 BATCH_SIZE = 32
 ACCUMULATION_STEPS = 4
+INPUT_FILE = 'train.from'
+TARGET_FILE = 'train.to'
+VOCAB_FILE = 'bert_vocab.txt'
 
-# Initialize tokenizer
-tokenizer = text.BertTokenizer('bert_vocab.txt', lower_case=True)
+# Get Tokenizer and Data Generator
+tokenizer, train_generator = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE, VOCAB_FILE)
+
 
 # Initialize the model
 model = TransformerModel(
@@ -77,6 +81,7 @@ def train_step(inp, tar):
         return loss, None
     
     return loss, gradients
+
 # Training loop
 for epoch in range(EPOCHS):
     total_loss = 0
