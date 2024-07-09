@@ -80,15 +80,18 @@ for epoch in range(EPOCHS):
     num_batches = 0
     
     for batch in train_generator:
-        input_ids = batch['input_ids']
-        labels = batch['labels']
-        
-        batch_loss = train_step(input_ids, labels)
-        total_loss += batch_loss
-        num_batches += 1
-        
-        if num_batches % 100 == 0:
-            logging.info(f'Epoch {epoch + 1} Batch {num_batches} Loss {batch_loss.numpy():.4f}')
+        try:
+            input_ids = batch['input_ids']
+            labels = batch['labels']
+            
+            batch_loss = train_step(input_ids, labels)
+            total_loss += batch_loss
+            num_batches += 1
+            
+            if num_batches % 100 == 0:
+                logging.info(f'Epoch {epoch + 1} Batch {num_batches} Loss {batch_loss.numpy():.4f}')
+        except UnicodeDecodeError as e:
+            logging.error(f'UnicodeDecodeError: {e} - Skipping batch')
     
     avg_loss = total_loss / num_batches
     logging.info(f'Epoch {epoch + 1} Loss {avg_loss:.4f}')
