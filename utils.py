@@ -2,6 +2,9 @@ import tensorflow as tf
 import numpy as np
 import tensorflow_text as text
 
+
+
+
 def get_angles(pos, i, d_model):
     angle_rates = 1 / np.power(10000, (2 * (i//2)) / np.float32(d_model))
     return pos * angle_rates
@@ -41,10 +44,13 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         arg2 = step * (self.warmup_steps ** -1.5)
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
+loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
+    from_logits=True, reduction='none')
+
 def loss_function(real, pred):
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     loss_ = loss_object(real, pred)
     mask = tf.cast(mask, dtype=loss_.dtype)
     loss_ *= mask
-    return tf.reduce_sum(loss_)/(tf.reduce_sum(mask) + 1e-9) 
+    return tf.reduce_sum(loss_)/(tf.reduce_sum(mask) + 1e-9)
 
