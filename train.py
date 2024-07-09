@@ -65,6 +65,9 @@ def train_step(inp, tar):
         loss = loss_function(tar_real, predictions)
     
     gradients = tape.gradient(loss, model.trainable_variables)
+    #cast all gradients to float32
+    gradients = [tf.cast(g, tf.float32) for g in gradients]
+    #clip gradients
     gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=1.0)
     
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
