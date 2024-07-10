@@ -27,7 +27,7 @@ class MultiHeadAttention(Layer):
         matmul_qk = tf.matmul(q, k, transpose_b=True)
 
         # scale matmul_qk
-        dk = tf.cast(tf.shape(k)[-1], tf.float16)
+        dk = tf.cast(tf.shape(k)[-1], tf.float32)
         scaled_attention_logits = matmul_qk / (tf.math.sqrt(dk) + 1e-9)
 
         # add the mask to the scaled tensor.
@@ -46,9 +46,9 @@ class MultiHeadAttention(Layer):
     def call(self, v, k, q, mask):
         batch_size = tf.shape(q)[0]
 
-        q = self.wq(q)  # (batch_size, seq_len, d_model)
-        k = self.wk(k)  # (batch_size, seq_len, d_model)
-        v = self.wv(v)  # (batch_size, seq_len, d_model)
+        q = self.wq(q) 
+        k = self.wk(k)  
+        v = self.wv(v)  
 
         # (batch_size, num_heads, seq_len_q, depth)
         q = self.split_heads(q, batch_size)
@@ -66,9 +66,9 @@ class MultiHeadAttention(Layer):
         scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])
 
         concat_attention = tf.reshape(scaled_attention,
-                                      (batch_size, -1, self.d_model))  # (batch_size, seq_len_q, d_model)
+                                      (batch_size, -1, self.d_model)) 
 
-        # (batch_size, seq_len_q, d_model)
+        
         output = self.dense(concat_attention)
 
         return output, attention_weights
@@ -78,8 +78,8 @@ class EncoderLayer(Layer):
         super(EncoderLayer, self).__init__()
         self.mha = MultiHeadAttention(d_model, num_heads)
         self.ffn = tf.keras.Sequential([
-            Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
-            Dense(d_model)  # (batch_size, seq_len, d_model)
+            Dense(dff, activation='relu'), 
+            Dense(d_model)  
         ])
         self.layernorm1 = LayerNormalization(epsilon=1e-6)
         self.layernorm2 = LayerNormalization(epsilon=1e-6)
@@ -87,15 +87,15 @@ class EncoderLayer(Layer):
         self.dropout2 = Dropout(rate)
 
     def call(self, x, training=False, mask=None):
-        # (batch_size, input_seq_len, d_model)
+       
         attn_output, _ = self.mha(x, x, x, mask)
         attn_output = self.dropout1(attn_output, training=training)
-        # (batch_size, input_seq_len, d_model)
+       
         out1 = self.layernorm1(x + attn_output)
 
-        ffn_output = self.ffn(out1)  # (batch_size, input_seq_len, d_model)
+        ffn_output = self.ffn(out1) 
         ffn_output = self.dropout2(ffn_output, training=training)
-        # (batch_size, input_seq_len, d_model)
+       
         out2 = self.layernorm2(out1 + ffn_output)
 
         return out2
@@ -160,11 +160,11 @@ class DecoderLayer(Layer):
         out1 = self.layernorm1(x + attn1)
 
         attn2, attn_weights_block2 = self.mha2(
-            enc_output, enc_output, out1, padding_mask)  # (batch_size, target_seq_len, d_model)
+            enc_output, enc_output, out1, padding_mask) 
         attn2 = self.dropout2(attn2, training=training)
         out2 = self.layernorm2(out1 + attn2)
 
-        ffn_output = self.ffn(out2)  # (batch_size, target_seq_len, d_model)
+        ffn_output = self.ffn(out2)  
         ffn_output = self.dropout3(ffn_output, training=training)
         # (batch_size, target_seq_len, d_model)
         out3 = self.layernorm3(out2 + ffn_output)
