@@ -2,7 +2,8 @@ import tensorflow as tf
 import numpy as np
 import tensorflow_text as text
 
-
+#This should help with graidient explosion (boom!   :D)
+LEARNING_RATE = 0.001
 
 
 def get_angles(pos, i, d_model):
@@ -43,7 +44,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         step = tf.cast(step, tf.float32)
         arg1 = tf.math.rsqrt(step)
         arg2 = step * (self.warmup_steps ** -1.5)
-        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2) * LEARNING_RATE 
 
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     from_logits=True, reduction='none')

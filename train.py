@@ -3,6 +3,11 @@ from model import TransformerModel
 from dataLoader import get_data_pipeline
 from utils import CustomSchedule, loss_function, create_padding_mask, create_look_ahead_mask
 import logging
+from tensorflow.keras import mixed_precision
+
+# Enable mixed precision training for faster compute on modern GPU
+mixed_precision.set_global_policy('mixed_float16')
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -14,7 +19,7 @@ DFF = 1024
 PE_INPUT = 1000
 PE_TARGET = 1000
 EPOCHS = 10
-BATCH_SIZE = 32
+BATCH_SIZE = 256
 ACCUMULATION_STEPS = 4
 INPUT_FILE = 'train.from'
 TARGET_FILE = 'train.to'
@@ -22,7 +27,7 @@ MAX_LENGTH = 512
 WARMUP_STEPS = 4000
 
 # Get Tokenizer and Data Generator
-tokenizer, train_generator = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
+tokenizer, dataset = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
 
 # Initialize the model
 model = TransformerModel(
@@ -67,8 +72,8 @@ def train_step(inp, tar):
     gradients = tape.gradient(loss, model.trainable_variables)
     #cast all gradients to float32
     gradients = [tf.cast(g, tf.float32) for g in gradients]
-    #clip gradients
-    gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=1.0)
+    #clip gradients to prevent exploding gradients (boom!)
+    gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=0.5)
     
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     
@@ -78,8 +83,8 @@ def train_step(inp, tar):
 for epoch in range(EPOCHS):
     total_loss = 0
     num_batches = 0
-    
-    for batch in train_generator:
+
+    for batch in dataset:
             input_ids = batch['input_ids']
             labels = batch['labels']
             
@@ -92,6 +97,8 @@ for epoch in range(EPOCHS):
     
     avg_loss = total_loss / num_batches
     logging.info(f'Epoch {epoch + 1} Loss {avg_loss:.4f}')
+
+
 
 # Save the model
 model.save_weights('transformer_model_weights')

@@ -18,8 +18,8 @@ model = TFAutoModelForCausalLM.from_pretrained("gpt2")
 optimizer = tf.keras.optimizers.AdamW(learning_rate=5e-5)
 model.compile(optimizer='AdamW', loss='sparse_categorical_crossentropy')
 
-# Train the model
-model.fit(train_generator, epochs=10)
+# Train the model (This is broken right now, but you get the idea)
+#model.fit(train_generator, epochs=10)
 
 # Function to generate responses
 def generate_response(instruction, max_length=100):
@@ -28,7 +28,7 @@ def generate_response(instruction, max_length=100):
     output = model.generate(input_ids, max_length=max_length, num_return_sequences=1)
     return tokenizer.decode(output[0], skip_special_tokens=True)
 
-# Example usage
-instruction = "Tell me a joke about programming."
-response = generate_response(instruction)
-print(response)
+while(True):
+    instruction = intput("Enter instruction: ")
+    response = generate_response(instruction)
+    print(response)
