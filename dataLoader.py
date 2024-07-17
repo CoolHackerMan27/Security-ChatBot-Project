@@ -1,6 +1,6 @@
 from transformers import GPT2Tokenizer
 import tensorflow as tf
-from tesorflow.keras import mixed_precision
+from tensorflow.keras import mixed_precision
 mixed_precision.set_global_policy('mixed_float16')
 def get_tokenizer():
     return GPT2Tokenizer.from_pretrained("gpt2")
@@ -23,15 +23,21 @@ def data_generator(input_file, target_file, batch_size, max_length):
         return combined_text
         
     def tokenize_map(text):
+
+        #Convert to string from tensor
+        if isinstance(text, tf.Tensor):
+            text = tf.strings.as_string(text)
+        #Decode the text
+        text = text.numpy().decode("utf-8")
         encodings = tokenizer(text, max_length=max_length, truncation=True, padding="max_length")
         input_ids = encodings["input_ids"][0]
         attention_mask = encodings["attention_mask"][0]
         lables = tf.pad(input_ids[1:], [[0, 1]])
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
 
-    dataset = dataset.map(preprocess_input, num_prallel_calls=tf.data.experimental.AUTOTUNE)
-    dataset = dataset.map(tokenize_map, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    dataset = dataset.cache()
+    dataset = dataset.map(preprocess_input)
+    dataset = dataset.map(tokenize_map)
+    dataset = dataset.cache()#This only works if the dataset fits in memory, so small datasets or large memory(like a lot. 128GB+)
     dataset = dataset.shuffle(1024).batch(batch_size)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
