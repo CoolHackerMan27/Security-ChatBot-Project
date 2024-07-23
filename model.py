@@ -26,11 +26,16 @@ class MultiHeadAttention(Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     def scaled_dot_product_attention(self, q, k, v, mask):
+        mask = tf.cast(mask, tf.float32)
+        q = tf.cast(q, tf.float32)
+        k = tf.cast(k, tf.float32)
+        v = tf.cast(v, tf.float32)
+
         matmul_qk = tf.matmul(q, k, transpose_b=True)
 
         # scale matmul_qk
         dk = tf.cast(tf.shape(k)[-1], tf.float32)
-        scaled_attention_logits = matmul_qk / (tf.math.sqrt(dk) + 1e-9)
+        scaled_attention_logits = matmul_qk / (tf.math.sqrt(dk) + tf.cast(1e-9, tf.float32))
 
         # add the mask to the scaled tensor.
         if mask is not None:

@@ -116,4 +116,4 @@ for epoch in range(EPOCHS):
 
 
 # Save the model
-model.save_weights('transformer_model_weights')
+model.save_weights('transformer_model_weights.h5')
