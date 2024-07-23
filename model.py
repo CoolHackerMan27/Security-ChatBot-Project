@@ -30,7 +30,7 @@ class MultiHeadAttention(Layer):
         q = tf.cast(q, tf.float32)
         k = tf.cast(k, tf.float32)
         v = tf.cast(v, tf.float32)
-
+        
         matmul_qk = tf.matmul(q, k, transpose_b=True)
 
         # scale matmul_qk

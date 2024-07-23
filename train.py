@@ -19,7 +19,7 @@ DFF = 1024
 PE_INPUT = 1000
 PE_TARGET = 1000
 EPOCHS = 10
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 ACCUMULATION_STEPS = 4
 INPUT_FILE = 'train.from'
 TARGET_FILE = 'train.to'
@@ -116,4 +116,4 @@ for epoch in range(EPOCHS):
 
 
 # Save the model
-model.save_weights('transformer_model_weights.h5')
+model.save_weights('transformer_model.weights.h5')
