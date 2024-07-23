@@ -83,11 +83,12 @@ def train_step(inp, tar):
 for epoch in range(EPOCHS):
     total_loss = 0
     num_batches = 0
+#Testing
+    for item in dataset.take(1): print(item)
 
-    for batch in dataset:
+    for batch in dataset:        
             input_ids = batch['input_ids']
             labels = batch['labels']
-            
             batch_loss = train_step(input_ids, labels)
             total_loss += batch_loss
             num_batches += 1
