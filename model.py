@@ -1,6 +1,9 @@
 import tensorflow as tf
 from utils import positional_encoding
 from tensorflow.keras.layers import Layer, Embedding, Dense, LayerNormalization, Dropout
+from tensorflow.keras import mixed_precision
+mixed_precision.set_global_policy('mixed_float16')
+
 
 class MultiHeadAttention(Layer):
     def __init__(self, d_model, num_heads):
@@ -36,24 +39,27 @@ class MultiHeadAttention(Layer):
         # softmax is normalized on the last axis (seq_len_k) so that the scores
         # add up to 1.
         attention_weights = tf.nn.softmax(
-            scaled_attention_logits, axis=-1)  
+            scaled_attention_logits, axis=-1)
 
-        output = tf.matmul(attention_weights, v)  
+        output = tf.matmul(attention_weights, v)
 
         return output, attention_weights
 
     def call(self, v, k, q, mask):
         batch_size = tf.shape(q)[0]
 
-        q = self.wq(q) 
-        k = self.wk(k)  
-        v = self.wv(v)  
+        q = self.wq(q)
+        k = self.wk(k)
+        v = self.wv(v)
 
         # (batch_size, num_heads, seq_len_q, depth)
         q = self.split_heads(q, batch_size)
         k = self.split_heads(k, batch_size)
         v = self.split_heads(v, batch_size)
-
+        # Cast to float32
+        q = tf.cast(q, tf.float32)
+        k = tf.cast(k, tf.float32)
+        v = tf.cast(v, tf.float32)
 
         scaled_attention, attention_weights = self.scaled_dot_product_attention(
             q, k, v, mask)
@@ -62,36 +68,36 @@ class MultiHeadAttention(Layer):
         scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])
 
         concat_attention = tf.reshape(scaled_attention,
-                                      (batch_size, -1, self.d_model)) 
+                                      (batch_size, -1, self.d_model))
 
-        
         output = self.dense(concat_attention)
 
         return output, attention_weights
+
 
 class EncoderLayer(Layer):
     def __init__(self, d_model, num_heads, dff, rate=0.1):
         super(EncoderLayer, self).__init__()
         self.mha = MultiHeadAttention(d_model, num_heads)
         self.ffn = tf.keras.Sequential([
-            Dense(dff, activation='relu'), 
-            Dense(d_model)  
+            Dense(dff, activation='relu'),
+            Dense(d_model)
         ])
-        self.layernorm1 = LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = LayerNormalization(epsilon=1e-6)
+        self.layernorm1 = LayerNormalization()
+        self.layernorm2 = LayerNormalization()
         self.dropout1 = Dropout(rate)
         self.dropout2 = Dropout(rate)
 
     def call(self, x, training=False, mask=None):
-       
+
         attn_output, _ = self.mha(x, x, x, mask)
         attn_output = self.dropout1(attn_output, training=training)
-       
+
         out1 = self.layernorm1(x + attn_output)
 
-        ffn_output = self.ffn(out1) 
+        ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output, training=training)
-       
+
         out2 = self.layernorm2(out1 + ffn_output)
 
         return out2
@@ -102,9 +108,9 @@ class Encoder(Layer):
         super(Encoder, self).__init__()
         self.d_model = d_model
         self.num_layers = num_layers
-        self.embedding = Embedding(input_vocab_size, d_model, dtype=tf.float16)
+        self.embedding = Embedding(input_vocab_size, d_model, dtype=tf.float32)
         self.pos_encoding = tf.cast(positional_encoding(
-            maximum_position_encoding, d_model), dtype=tf.float16)
+            maximum_position_encoding, d_model), dtype=tf.float32)
         self.enc_layers = [EncoderLayer(
             d_model, num_heads, dff, rate) for _ in range(num_layers)]
         self.dropout = Dropout(rate)
@@ -113,17 +119,17 @@ class Encoder(Layer):
         seq_len = tf.shape(x)[1]
 
         # Cast input to int32 (if it's not already)
-        x = tf.cast(x, tf.int32)
+        x = tf.cast(x, tf.float32)
 
-        # Embed and cast to float16
+        # Embed and cast to float32
         x = self.embedding(x)
-        x = tf.cast(x, tf.float16)
+        x = tf.cast(x, tf.float32)
 
         # Scale
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float16))
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
         # Add positional encoding
-        x += tf.cast(self.pos_encoding[:, :seq_len, :], tf.float16)
+        x += tf.cast(self.pos_encoding[:, :seq_len, :], tf.float32)
 
         x = self.dropout(x, training=training)
 
@@ -142,9 +148,9 @@ class DecoderLayer(Layer):
             Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
             Dense(d_model)  # (batch_size, seq_len, d_model)
         ])
-        self.layernorm1 = LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = LayerNormalization(epsilon=1e-6)
-        self.layernorm3 = LayerNormalization(epsilon=1e-6)
+        self.layernorm1 = LayerNormalization()
+        self.layernorm2 = LayerNormalization()
+        self.layernorm3 = LayerNormalization()
         self.dropout1 = Dropout(rate)
         self.dropout2 = Dropout(rate)
         self.dropout3 = Dropout(rate)
@@ -156,11 +162,11 @@ class DecoderLayer(Layer):
         out1 = self.layernorm1(x + attn1)
 
         attn2, attn_weights_block2 = self.mha2(
-            enc_output, enc_output, out1, padding_mask) 
+            enc_output, enc_output, out1, padding_mask)
         attn2 = self.dropout2(attn2, training=training)
         out2 = self.layernorm2(out1 + attn2)
 
-        ffn_output = self.ffn(out2)  
+        ffn_output = self.ffn(out2)
         ffn_output = self.dropout3(ffn_output, training=training)
         # (batch_size, target_seq_len, d_model)
         out3 = self.layernorm3(out2 + ffn_output)
@@ -184,9 +190,9 @@ class Decoder(Layer):
         seq_len = tf.shape(x)[1]
         attention_weights = {}
         x = self.embedding(x)
-        x = tf.cast(x, tf.float16)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float16))
-        x += tf.cast(self.pos_encoding[:, :seq_len, :], tf.float16)
+        x = tf.cast(x, tf.float32)
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+        x += tf.cast(self.pos_encoding[:, :seq_len, :], tf.float32)
         x = self.dropout(x, training=training)
 
         for i in range(self.num_layers):
@@ -214,4 +220,3 @@ class TransformerModel(tf.keras.Model):
             targets, enc_output, training=training, look_ahead_mask=look_ahead_mask, padding_mask=dec_padding_mask)
         final_output = self.final_layer(dec_output)
         return final_output, attention_weights
-

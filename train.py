@@ -4,12 +4,12 @@ from dataLoader import get_data_pipeline
 from utils import CustomSchedule, loss_function, create_padding_mask, create_look_ahead_mask
 import logging
 from tensorflow.keras import mixed_precision
-
 # Enable mixed precision training for faster compute on modern GPU
 mixed_precision.set_global_policy('mixed_float16')
 
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Define constants
 D_MODEL = 256
@@ -27,7 +27,8 @@ MAX_LENGTH = 512
 WARMUP_STEPS = 4000
 
 # Get Tokenizer and Data Generator
-tokenizer, dataset = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
+tokenizer, dataset = get_data_pipeline(
+    INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
 
 # Initialize the model
 model = TransformerModel(
@@ -43,21 +44,34 @@ model = TransformerModel(
 
 # Set up optimizer and loss
 learning_rate = CustomSchedule(D_MODEL, warmup_steps=WARMUP_STEPS)
-optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
-loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+optimizer = tf.keras.optimizers.Adam(
+    learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
+    from_logits=True, reduction='none')
+
 
 @tf.function
-def train_step(inp, tar):
+def train_step(batch):
+    inp, _, tar = batch
     tar_inp = tar[:, :-1]
     tar_real = tar[:, 1:]
-    
+
     enc_padding_mask = create_padding_mask(inp)
     combined_mask = tf.maximum(
         create_padding_mask(tar_inp),
         create_look_ahead_mask(tf.shape(tar_inp)[1])
     )
     dec_padding_mask = create_padding_mask(inp)
-    
+    # This is probably not the best way to do this, but it works for now
+    # Cast all masks to be float32
+    enc_padding_mask = tf.cast(enc_padding_mask, tf.float32)
+    combined_mask = tf.cast(combined_mask, tf.float32)
+    dec_padding_mask = tf.cast(dec_padding_mask, tf.float32)
+    # Cast inputs and Targets to float32
+    inp = tf.cast(inp, tf.float32)
+    tar_inp = tf.cast(tar_inp, tf.float32)
+    tar_real = tf.cast(tar_real, tf.float32)
+
     with tf.GradientTape() as tape:
         predictions, _ = model(
             inputs=inp,
@@ -68,37 +82,37 @@ def train_step(inp, tar):
             dec_padding_mask=dec_padding_mask
         )
         loss = loss_function(tar_real, predictions)
-    
+
     gradients = tape.gradient(loss, model.trainable_variables)
-    #cast all gradients to float32
+    # cast all gradients to float32
     gradients = [tf.cast(g, tf.float32) for g in gradients]
-    #clip gradients to prevent exploding gradients (boom!)
+    # clip gradients to prevent exploding gradients (boom!)
     gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=0.5)
-    
+
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    
+
     return loss
+
 
 # Training loop
 for epoch in range(EPOCHS):
     total_loss = 0
     num_batches = 0
-#Testing
-    for item in dataset.take(1): print(item)
+# Testing
+    for item in dataset.take(1):
+        print(item)
 
-    for batch in dataset:        
-            input_ids = batch['input_ids']
-            labels = batch['labels']
-            batch_loss = train_step(input_ids, labels)
-            total_loss += batch_loss
-            num_batches += 1
-            
-            if num_batches % 100 == 0:
-                logging.info(f'Epoch {epoch + 1} Batch {num_batches} Loss {batch_loss.numpy():.4f}')
-    
+    for batch in dataset:
+        batch_loss = train_step(batch)
+        total_loss += batch_loss
+        num_batches += 1
+
+        if num_batches % 100 == 0:
+            logging.info(
+                f'Epoch {epoch + 1} Batch {num_batches} Loss {batch_loss.numpy():.4f}')
+
     avg_loss = total_loss / num_batches
     logging.info(f'Epoch {epoch + 1} Loss {avg_loss:.4f}')
-
 
 
 # Save the model
