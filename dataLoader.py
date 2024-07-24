@@ -40,9 +40,10 @@ def data_generator(input_file, target_file, batch_size, max_length):
     dataset = dataset.map(lambda x, y: preprocess_input(x, y))
     dataset = dataset.map(lambda x: tf.py_function(
         func=tokenize_map, inp=[x], Tout=[tf.int32, tf.int32, tf.int32]))
-
-    #dataset = dataset.take(5000).cache().repeat() #This only works if the dataset fits in memory, so small datasets or large memory(like a lot. 128GB+) Using take(K) and repeat() to force the dataset to be fully cached.
-    #dataset = dataset.take(500).cache()  # Use this if you have less memory
+    # This only works if the dataset fits in memory, so small datasets or large memory(like a lot. 128GB+) If using gpu make sure there is enough VRAM from dataset to fit in memory.Using take(K) and repeat() to force the dataset to be fully cached.
+    # dataset = dataset.take(5000).cache().repeat()
+    # Use this to select smaller datasets from the whole dataset
+    dataset = dataset.take(8000000)
     dataset = dataset.shuffle(1024).batch(batch_size)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 

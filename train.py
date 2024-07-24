@@ -1,4 +1,5 @@
 import tensorflow as tf
+import signal
 from model import TransformerModel
 from dataLoader import get_data_pipeline
 from utils import CustomSchedule, loss_function, create_padding_mask, create_look_ahead_mask
@@ -11,43 +12,11 @@ mixed_precision.set_global_policy('mixed_float16')
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Define constants
-D_MODEL = 256
-NUM_LAYERS = 4
-NUM_HEADS = 4
-DFF = 1024
-PE_INPUT = 1000
-PE_TARGET = 1000
-EPOCHS = 10
-BATCH_SIZE = 64
-ACCUMULATION_STEPS = 4
-INPUT_FILE = 'train.from'
-TARGET_FILE = 'train.to'
-MAX_LENGTH = 512
-WARMUP_STEPS = 4000
 
-# Get Tokenizer and Data Generator
-tokenizer, dataset = get_data_pipeline(
-    INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
-
-# Initialize the model
-model = TransformerModel(
-    num_layers=NUM_LAYERS,
-    d_model=D_MODEL,
-    num_heads=NUM_HEADS,
-    dff=DFF,
-    input_vocab_size=len(tokenizer),
-    target_vocab_size=len(tokenizer),
-    pe_input=PE_INPUT,
-    pe_target=PE_TARGET
-)
-
-# Set up optimizer and loss
-learning_rate = CustomSchedule(D_MODEL, warmup_steps=WARMUP_STEPS)
-optimizer = tf.keras.optimizers.Adam(
-    learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
-loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
-    from_logits=True, reduction='none')
+def handle_sigint(sig, frame):
+    logging.info('SIGINT received, saving model')
+    model.save_weights('transformer_model.weights.h5')
+    exit(0)
 
 
 @tf.function
@@ -87,11 +56,47 @@ def train_step(batch):
     # cast all gradients to float32
     gradients = [tf.cast(g, tf.float32) for g in gradients]
     # clip gradients to prevent exploding gradients (boom!)
-    gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=0.5)
+    # This only works if the dataset fits in memory, so small datasets or large memory(like a lot. 128GB+) Using take(K) and repeat() to force the dataset to be fully cached.
+    gradients,
 
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-    return loss
+# Define constants
+D_MODEL = 256
+NUM_LAYERS = 4
+NUM_HEADS = 4
+DFF = 1024
+PE_INPUT = 1000
+PE_TARGET = 1000
+EPOCHS = 10
+BATCH_SIZE = 64
+ACCUMULATION_STEPS = 4
+INPUT_FILE = 'train.from'
+TARGET_FILE = 'train.to'
+MAX_LENGTH = 512
+WARMUP_STEPS = 4000
+
+# Get Tokenizer and Data Generator
+tokenizer, dataset = get_data_pipeline(
+    INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
+
+# Initialize the model
+model = TransformerModel(
+    num_layers=NUM_LAYERS,
+    d_model=D_MODEL,
+    num_heads=NUM_HEADS,
+    dff=DFF,
+    input_vocab_size=len(tokenizer),
+    target_vocab_size=len(tokenizer),
+    pe_input=PE_INPUT,
+    pe_target=PE_TARGET
+)
+
+# Set up optimizer and loss
+learning_rate = CustomSchedule(D_MODEL, warmup_steps=WARMUP_STEPS)
+optimizer = tf.keras.optimizers.Adam(
+    learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
+    from_logits=True, reduction='none')
 
 
 # Training loop
