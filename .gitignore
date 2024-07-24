@@ -1,0 +1,8 @@
+#Ignore Database
+*.db
+*.sqlite
+# Ignore IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
