@@ -14,7 +14,7 @@ def infrence(model, input, tokenizer):
     # Tokenize the input
     input = tokenizer(input, return_tensors="tf", max_length=512, truncation=True, padding="max_length")
     # Get the model prediction
-    output = model(input_ids=input['input_ids'], attention_mask=input['attention_mask'])
+    output = model(input_ids=input['input_ids'], attention_mask=input['attention_mask'], input = input, training=False)
     # Decode the output
     output = tokenizer.decode(output)
     return output
