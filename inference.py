@@ -1,10 +1,10 @@
 #This file loads the saved model and runs infrence on it
 import tensorflow as tf
-from model import Transformer
+from model import TransformerModel as Transformer
 import dataLoader
 
 
-def load_weights(weights_file):
+def load_weights(weights_file):w
     model = Transformer(num_layers=4, d_model=256, num_heads=4, dff=1024, input_vocab_size=50257, target_vocab_size=50257, pe_input=1000, pe_target=1000, rate=0.1)
     model.load_weights(weights_file)
     return model
