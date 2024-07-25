@@ -13,7 +13,6 @@ PE_TARGET = 1000
 MAX_LENGTH = 512
 
 def load_model(checkpoint_path):
-    # Initialize the model
     tokenizer = get_tokenizer()
     model = TransformerModel(
         num_layers=NUM_LAYERS,
@@ -26,33 +25,38 @@ def load_model(checkpoint_path):
         pe_target=PE_TARGET
     )
     
-    # Load the weights
     model.load_weights(checkpoint_path)
     return model, tokenizer
 
 def preprocess_input(input_text, tokenizer):
-    # Tokenize and pad the input
     input_tokens = tokenizer.encode(input_text, add_special_tokens=True, return_tensors="tf")
     input_tokens = input_tokens[:, :MAX_LENGTH]  # Truncate if too long
-    input_tokens = tf.pad(input_tokens, [[0, 0], [0, MAX_LENGTH - tf.shape(input_tokens)[1]]])
-    return input_tokens
+    input_length = tf.shape(input_tokens)[1]
+    padding_length = MAX_LENGTH - input_length
+    input_tokens = tf.pad(input_tokens, [[0, 0], [0, padding_length]])
+    return input_tokens, input_length
 
-def inference(model, tokenizer, input_text):
-    # Preprocess input
-    input_tensor = preprocess_input(input_text, tokenizer)
-    
-    # Create masks
+def create_masks(input_tensor, target_tensor, input_length):
     enc_padding_mask = create_padding_mask(input_tensor)
-    combined_mask = tf.maximum(
-        create_padding_mask(tf.zeros_like(input_tensor)),
-        create_look_ahead_mask(tf.shape(input_tensor)[1])
-    )
     dec_padding_mask = create_padding_mask(input_tensor)
     
-    # Initialize target input with start token (for GPT-2, we can use the same input)
+    look_ahead_mask = create_look_ahead_mask(MAX_LENGTH)
+    dec_target_padding_mask = create_padding_mask(target_tensor)
+    combined_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
+    
+    # Adjust masks to account for the actual input length
+    combined_mask = combined_mask[:, :, :input_length, :input_length]
+    
+    return enc_padding_mask, combined_mask, dec_padding_mask
+
+def inference(model, tokenizer, input_text):
+    input_tensor, input_length = preprocess_input(input_text, tokenizer)
+    
     output = input_tensor
     
     for i in range(MAX_LENGTH):
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(input_tensor, output, input_length)
+        
         predictions, _ = model(
             inputs=input_tensor,
             targets=output,
@@ -62,18 +66,15 @@ def inference(model, tokenizer, input_text):
             dec_padding_mask=dec_padding_mask
         )
         
-        # Get the last token prediction
         predictions = predictions[:, -1:, :]
         predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
         
-        # Break if end token is predicted (for GPT-2, you might want to use a specific end token or condition)
         if predicted_id == tokenizer.eos_token_id:
             break
         
-        # Concatenate the predicted token to the output
         output = tf.concat([output, predicted_id], axis=-1)
+        input_length += 1
     
-    # Decode the output tokens
     return tokenizer.decode(tf.squeeze(output).numpy())
 
 # Main execution
