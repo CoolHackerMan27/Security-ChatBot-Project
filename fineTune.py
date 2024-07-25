@@ -3,7 +3,7 @@ from dataLoader import get_data_pipeline
 import tensorflow as tf
 
 # Define constants
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 MAX_LENGTH = 512
 INPUT_FILE = 'train.from'
 TARGET_FILE = 'train.to'
@@ -17,9 +17,9 @@ model = TFAutoModelForCausalLM.from_pretrained("gpt2")
 # Compile the model
 optimizer = tf.keras.optimizers.AdamW(learning_rate=5e-5)
 model.compile(optimizer='AdamW', loss='sparse_categorical_crossentropy')
-
-# Train the model (This is broken right now, but you get the idea)
-#model.fit(train_generator, epochs=10)
+tokenizer, datset = get_data_pipeline(INPUT_FILE, TARGET_FILE, BATCH_SIZE, MAX_LENGTH)
+# Train the model 
+model.fit(dataset, epochs=10)
 
 # Function to generate responses
 def generate_response(instruction, max_length=100):
