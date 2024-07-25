@@ -3,6 +3,7 @@ from model import TransformerModel
 from dataLoader import get_data_pipeline
 from utils import CustomSchedule, loss_function, create_padding_mask, create_look_ahead_mask
 import logging
+import signal
 from tensorflow.keras import mixed_precision
 # Enable mixed precision training for faster compute on modern GPU
 mixed_precision.set_global_policy('mixed_float16')
@@ -94,13 +95,16 @@ def train_step(batch):
     return loss
 
 
+def signal_handler(sig, frame):
+    logging.info('Exiting gracefully')
+    model.save_weights('transformer_model.weights.h5')
+    exit(0)
+
+
 # Training loop
 for epoch in range(EPOCHS):
     total_loss = 0
     num_batches = 0
-# Testing
-    for item in dataset.take(1):
-        print(item)
 
     for batch in dataset:
         batch_loss = train_step(batch)
