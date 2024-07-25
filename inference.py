@@ -3,7 +3,7 @@ from model import TransformerModel
 from utils import create_padding_mask, create_look_ahead_mask
 from dataLoader import get_tokenizer
 
-# Define constants (make sure these match your training setup)
+# Constants
 D_MODEL = 256
 NUM_LAYERS = 4
 NUM_HEADS = 4
@@ -24,7 +24,6 @@ def load_model(checkpoint_path):
         pe_input=PE_INPUT,
         pe_target=PE_TARGET
     )
-    
     model.load_weights(checkpoint_path)
     return model, tokenizer
 
@@ -36,26 +35,31 @@ def preprocess_input(input_text, tokenizer):
     input_tokens = tf.pad(input_tokens, [[0, 0], [0, padding_length]])
     return input_tokens, input_length
 
-def create_masks(input_tensor, target_tensor, input_length):
+def create_masks(input_tensor, target_tensor):
+
     enc_padding_mask = create_padding_mask(input_tensor)
+
     dec_padding_mask = create_padding_mask(input_tensor)
     
-    look_ahead_mask = create_look_ahead_mask(MAX_LENGTH)
+    look_ahead_mask = create_look_ahead_mask(tf.shape(target_tensor)[1])
     dec_target_padding_mask = create_padding_mask(target_tensor)
     combined_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
-    
-    # Adjust masks to account for the actual input length
-    combined_mask = combined_mask[:, :, :input_length, :input_length]
     
     return enc_padding_mask, combined_mask, dec_padding_mask
 
 def inference(model, tokenizer, input_text):
-    input_tensor, input_length = preprocess_input(input_text, tokenizer)
-    
+    input_tensor, _ = preprocess_input(input_text, tokenizer)
     output = input_tensor
     
     for i in range(MAX_LENGTH):
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(input_tensor, output, input_length)
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(input_tensor, output)
+        
+        # Ensure all inputs are float32
+        input_tensor = tf.cast(input_tensor, tf.float32)
+        output = tf.cast(output, tf.float32)
+        enc_padding_mask = tf.cast(enc_padding_mask, tf.float32)
+        combined_mask = tf.cast(combined_mask, tf.float32)
+        dec_padding_mask = tf.cast(dec_padding_mask, tf.float32)
         
         predictions, _ = model(
             inputs=input_tensor,
@@ -73,7 +77,6 @@ def inference(model, tokenizer, input_text):
             break
         
         output = tf.concat([output, predicted_id], axis=-1)
-        input_length += 1
     
     return tokenizer.decode(tf.squeeze(output).numpy())
 
@@ -81,6 +84,7 @@ def inference(model, tokenizer, input_text):
 if __name__ == "__main__":
     checkpoint_path = 'transformer_model.weights.h5'
     model, tokenizer = load_model(checkpoint_path)
+   
     while True:
         input_text = input("Enter input: ")
         response = inference(model, tokenizer, input_text)
