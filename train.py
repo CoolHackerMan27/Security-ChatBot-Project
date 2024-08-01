@@ -114,6 +114,8 @@ for epoch in range(EPOCHS):
         if num_batches % 100 == 0:
             logging.info(
                 f'Epoch {epoch + 1} Batch {num_batches} Loss {batch_loss.numpy():.4f}')
+        if num_batches % 1000 == 0:
+            model.save_weights('transformer_model.weights.h5')
 
     avg_loss = total_loss / num_batches
     logging.info(f'Epoch {epoch + 1} Loss {avg_loss:.4f}')
